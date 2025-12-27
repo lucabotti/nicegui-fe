@@ -1,0 +1,39 @@
+[project]
+name = "nicegui-fe"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "nicegui>=3.4.1",
+    "authlib",
+    "httpx",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "ty",
+]
+
+[tool.ruff]
+# Target version for Python
+target-version = "py312"
+
+[tool.ruff.lint]
+# Rules to enable
+select = ["E", "F", "I", "U"]
+# Rules to ignore
+ignore = []
+# Allow autofix for all enabled rules (when supported)
+fixable = ["ALL"]
+
+[tool.ruff.format]
+# Enable black-compatible formatting
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
