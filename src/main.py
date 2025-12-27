@@ -39,7 +39,8 @@ oauth.register(
 @app.get("/login")
 async def login(request: Request) -> RedirectResponse:
     """Initiate Keycloak login."""
-    redirect_uri = "http://127.0.0.1:8010/auth"
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/auth"
     return await oauth.keycloak.authorize_redirect(request, redirect_uri)
 
 

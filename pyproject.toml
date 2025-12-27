@@ -15,7 +15,9 @@ dev = [
     "pre-commit>=4.5.1",
     "pytest",
     "pytest-asyncio",
+    "python-keycloak>=5.8.1",
     "ruff",
+    "testcontainers>=4.13.3",
     "ty",
 ]
 
