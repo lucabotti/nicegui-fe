@@ -41,11 +41,11 @@ async def test_keycloak_metadata_discovery(
     Verify that the app can successfully discover Keycloak metadata.
     This proves the integration at the network level and configuration level.
     """
-    from main import oauth
+    from main import keycloak_openid
 
-    # Authlib's load_server_metadata is called internally during registration
-    # or first use. We can trigger it manually to verify.
-    metadata = await oauth.keycloak.load_server_metadata()
+    # python-keycloak's well_known is called internally.
+    # We can trigger it manually to verify.
+    metadata = keycloak_openid.well_known()
     assert metadata is not None
     assert "issuer" in metadata
     assert "/realms/test-realm" in metadata["issuer"]
@@ -60,39 +60,49 @@ async def test_auth_flow_with_multiple_users(
     We'll test testuser and testuser2.
     """
     # 1. Test first user: testuser
-    with unittest.mock.patch(
-        "authlib.integrations.starlette_client.apps.StarletteOAuth2App.authorize_access_token"
-    ) as mock_token:
+    with (
+        unittest.mock.patch("keycloak.KeycloakOpenID.token") as mock_token,
+        unittest.mock.patch("keycloak.KeycloakOpenID.userinfo") as mock_userinfo,
+    ):
         mock_token.return_value = {
-            "userinfo": {
-                "preferred_username": "testuser",
-                "email": "testuser@example.com",
-            }
+            "access_token": "fake_access_token",
+            "refresh_token": "fake_refresh_token",
+        }
+        mock_userinfo.return_value = {
+            "preferred_username": "testuser",
+            "email": "testuser@example.com",
         }
 
-        await user.open("/auth")
+        await user.open("/auth?code=fake_code")
         await user.should_see("Hello testuser!")
         await user.should_see("Welcome, testuser")
 
         # Logout testuser
-        user.find(marker="logout-item").click()
-        await user.should_see("Welcome to the App!")
+        with unittest.mock.patch("keycloak.KeycloakOpenID.logout") as mock_logout:
+            user.find(marker="logout-item").click()
+            await user.should_see("Welcome to the App!")
+            mock_logout.assert_called_once()
 
     # 2. Test second user: testuser2
-    with unittest.mock.patch(
-        "authlib.integrations.starlette_client.apps.StarletteOAuth2App.authorize_access_token"
-    ) as mock_token:
+    with (
+        unittest.mock.patch("keycloak.KeycloakOpenID.token") as mock_token,
+        unittest.mock.patch("keycloak.KeycloakOpenID.userinfo") as mock_userinfo,
+    ):
         mock_token.return_value = {
-            "userinfo": {
-                "preferred_username": "testuser2",
-                "email": "testuser2@example.com",
-            }
+            "access_token": "fake_access_token_2",
+            "refresh_token": "fake_refresh_token_2",
+        }
+        mock_userinfo.return_value = {
+            "preferred_username": "testuser2",
+            "email": "testuser2@example.com",
         }
 
-        await user.open("/auth")
+        await user.open("/auth?code=fake_code_2")
         await user.should_see("Hello testuser2!")
         await user.should_see("Welcome, testuser2")
 
         # Logout testuser2
-        user.find(marker="logout-item").click()
-        await user.should_see("Welcome to the App!")
+        with unittest.mock.patch("keycloak.KeycloakOpenID.logout") as mock_logout:
+            user.find(marker="logout-item").click()
+            await user.should_see("Welcome to the App!")
+            mock_logout.assert_called_once()

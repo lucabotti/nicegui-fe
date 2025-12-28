@@ -1,18 +1,17 @@
 import os
 from typing import Any, cast
 
-from authlib.integrations.starlette_client import OAuth
+from keycloak import KeycloakOpenID
 from nicegui import app, ui
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 # Keycloak configuration
-KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "http://127.0.0.1:8080")
+KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "http://127.0.0.1:8080").rstrip("/")
 REALM = "test-realm"
 CLIENT_ID = "nicegui-app"
-BASE_URL = f"{KEYCLOAK_URL}/realms/{REALM}"
-CONF_URL = f"{BASE_URL}/.well-known/openid-configuration"
+CLIENT_SECRET = os.environ.get("KEYCLOAK_CLIENT_SECRET")
 
 # Add SessionMiddleware with a unique cookie name to avoid clashes with Keycloak
 app.add_middleware(
@@ -21,18 +20,13 @@ app.add_middleware(
     session_cookie="nicegui_session",
 )
 
-# Add SessionMiddleware for OAuth lib
-# NiceGUI already uses sessions for app.storage.user, but Authlib needs Starlette's
-# SessionMiddleware. We need to make sure we don't conflict.
-# NiceGUI uses its own session management.
-# Actually, NiceGUI provides `app.add_middleware`.
-
-oauth = OAuth()
-oauth.register(
-    name="keycloak",
+# Initialize Keycloak OpenID
+keycloak_openid = KeycloakOpenID(
+    server_url=f"{KEYCLOAK_URL}/",
     client_id=CLIENT_ID,
-    server_metadata_url=CONF_URL,
-    client_kwargs={"scope": "openid profile email"},
+    realm_name=REALM,
+    client_secret_key=CLIENT_SECRET,
+    verify=True,
 )
 
 
@@ -41,26 +35,54 @@ async def login(request: Request) -> RedirectResponse:
     """Initiate Keycloak login."""
     base_url = str(request.base_url).rstrip("/")
     redirect_uri = f"{base_url}/auth"
-    return await oauth.keycloak.authorize_redirect(request, redirect_uri)
+    auth_url = keycloak_openid.auth_url(
+        redirect_uri=redirect_uri,
+        scope="openid profile email",
+        state="some_state_string",
+    )
+    return RedirectResponse(url=auth_url)
 
 
 @app.get("/auth")
 async def auth(request: Request) -> RedirectResponse:
     """Handle Keycloak callback."""
-    token = await oauth.keycloak.authorize_access_token(request)
-    user = token.get("userinfo")
-    if user:
-        app.storage.user.update(
-            {"username": user.get("preferred_username"), "authenticated": True}
+    code = request.query_params.get("code")
+    if not code:
+        return RedirectResponse(url="/")
+
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/auth"
+
+    try:
+        token = keycloak_openid.token(
+            grant_type="authorization_code", code=code, redirect_uri=redirect_uri
         )
+        user_info = keycloak_openid.userinfo(token["access_token"])
+
+        app.storage.user.update(
+            {
+                "username": user_info.get("preferred_username"),
+                "authenticated": True,
+                "access_token": token["access_token"],
+                "refresh_token": token["refresh_token"],
+            }
+        )
+    except Exception as e:
+        print(f"Authentication failed: {e}")
+
     return RedirectResponse(url="/")
 
 
 def logout() -> None:
     """Clear session data and log out."""
+    refresh_token = app.storage.user.get("refresh_token")
+    if refresh_token:
+        try:
+            keycloak_openid.logout(refresh_token)
+        except Exception as e:
+            print(f"Logout failed: {e}")
+
     app.storage.user.clear()
-    # Simple logout - clears local session.
-    # For full Keycloak logout, we would redirect to KEYCLOAK logout endpoint.
     ui.navigate.to("/")
 
 
@@ -130,9 +152,10 @@ if __name__ in {"__main__", "__mp_main__", "nicegui"}:
     # The default redis_url is 'redis://localhost:6379'
     # In docker, we usually set REDIS_URL=redis://redis:6379
     redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
+    os.environ["NICEGUI_REDIS_URL"] = redis_url
     ui.run(
         port=8010,
         storage_secret="my_secret_key",
-        storage_type="redis",
-        redis_url=redis_url,
+        # storage_type="redis",
+        # redis_url=redis_url,
     )
