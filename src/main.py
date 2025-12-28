@@ -126,6 +126,13 @@ def main_page() -> None:
 
 if __name__ in {"__main__", "__mp_main__", "nicegui"}:
     # Start the application
-    # We use our manual SessionMiddleware instead of ui.run's storage_secret
-    # to ensure Authlib compatibility
-    ui.run(port=8010)
+    # We use Redis for session storage (app.storage.user)
+    # The default redis_url is 'redis://localhost:6379'
+    # In docker, we usually set REDIS_URL=redis://redis:6379
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
+    ui.run(
+        port=8010,
+        storage_secret="my_secret_key",
+        storage_type="redis",
+        redis_url=redis_url,
+    )

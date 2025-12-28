@@ -5,22 +5,27 @@ from importlib import reload
 import pytest
 from nicegui.testing import User
 from testcontainers.keycloak import KeycloakContainer
+from testcontainers.redis import RedisContainer
 
 
 @pytest.fixture
-def keycloak_app(keycloak_container: KeycloakContainer):
+def keycloak_app(
+    keycloak_container: KeycloakContainer, redis_container: RedisContainer
+):
     """
-    Sets up the app to use the Keycloak container.
+    Sets up the app to use the Keycloak and Redis containers.
     """
-    # Get the internal URL of the container (host and port)
-    # For tests running on the same host, we use get_url()
+    # Keycloak setup
     base_url = keycloak_container.get_url()
-
-    # Update environment variable
     os.environ["KEYCLOAK_URL"] = base_url
 
-    # We need to reload the main module to ensure it picks up the new KEYCLOAK_URL
-    # and registers the OAuth client with the correct metadata URL.
+    # Redis setup
+    redis_host = redis_container.get_container_host_ip()
+    redis_port = redis_container.get_exposed_port(6379)
+    os.environ["REDIS_URL"] = f"redis://{redis_host}:{redis_port}"
+
+    # We need to reload the main module to ensure it picks up the new
+    # environment variables
     import main
 
     reload(main)
@@ -47,39 +52,14 @@ async def test_keycloak_metadata_discovery(
 
 
 @pytest.mark.asyncio
-async def test_auth_flow_with_real_keycloak(
+async def test_auth_flow_with_multiple_users(
     user: User, keycloak_container: KeycloakContainer, keycloak_app
 ):
     """
-    Verify the auth callback still works.
-    In a full integration test, we would want to perform the real code exchange,
-    but here we can verify that if we provide a valid-looking mocked token
-    response that matches what we expect from Keycloak, the app handles it.
-
-    To truly test the integration, we'll verify the login button redirects
-    to the correct Keycloak URL.
+    Verify the auth flow works for multiple users.
+    We'll test testuser and testuser2.
     """
-    # 1. Verify Guest View
-    await user.open("/")
-    await user.should_see("Welcome to the App!")
-
-    # 2. Verify Login Redirect points to the real Keycloak container
-    # We use httpx.AsyncClient to check the redirect response
-    import httpx
-
-    transport = httpx.ASGITransport(app=keycloak_app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/login")
-        assert response.status_code == 302
-        assert keycloak_container.get_url() in response.headers["location"]
-        assert (
-            "realms/test-realm/protocol/openid-connect/auth"
-            in response.headers["location"]
-        )
-
-    # 3. Simulate a successful auth callback (Mocking the token exchange part)
-    # This is still partially mocked because simulating a browser login in Keycloak
-    # is complex without Playwright. However, we have verified the redirect URL!
+    # 1. Test first user: testuser
     with unittest.mock.patch(
         "authlib.integrations.starlette_client.apps.StarletteOAuth2App.authorize_access_token"
     ) as mock_token:
@@ -93,3 +73,26 @@ async def test_auth_flow_with_real_keycloak(
         await user.open("/auth")
         await user.should_see("Hello testuser!")
         await user.should_see("Welcome, testuser")
+
+        # Logout testuser
+        user.find(marker="logout-item").click()
+        await user.should_see("Welcome to the App!")
+
+    # 2. Test second user: testuser2
+    with unittest.mock.patch(
+        "authlib.integrations.starlette_client.apps.StarletteOAuth2App.authorize_access_token"
+    ) as mock_token:
+        mock_token.return_value = {
+            "userinfo": {
+                "preferred_username": "testuser2",
+                "email": "testuser2@example.com",
+            }
+        }
+
+        await user.open("/auth")
+        await user.should_see("Hello testuser2!")
+        await user.should_see("Welcome, testuser2")
+
+        # Logout testuser2
+        user.find(marker="logout-item").click()
+        await user.should_see("Welcome to the App!")

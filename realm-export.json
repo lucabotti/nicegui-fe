@@ -32,6 +32,21 @@
         }
       ],
       "realmRoles": [ "user" ]
+    },
+    {
+      "username": "testuser2",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "User2",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [ "user" ]
     }
   ],
   "roles": {

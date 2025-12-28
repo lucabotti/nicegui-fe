@@ -3,6 +3,7 @@ from collections.abc import Generator
 
 import pytest
 from testcontainers.keycloak import KeycloakContainer
+from testcontainers.redis import RedisContainer
 
 
 @pytest.fixture(scope="session")
@@ -22,3 +23,13 @@ def keycloak_container() -> Generator[KeycloakContainer, None, None]:
         keycloak.with_realm_import_file(realm_export_path)
         keycloak.start()
         yield keycloak
+
+
+@pytest.fixture(scope="session")
+def redis_container() -> Generator[RedisContainer, None, None]:
+    """
+    Fixture to start a Redis container.
+    """
+    with RedisContainer("redis:7") as redis:
+        redis.start()
+        yield redis
