@@ -23,6 +23,9 @@ def mock_keycloak():
         patch(
             "keycloak.KeycloakOpenID.logout",
         ) as mock_logout,
+        patch(
+            "keycloak.KeycloakOpenID.decode_token",
+        ) as mock_decode,
     ):
         mock_auth_url.return_value = "http://keycloak/auth"
         mock_token.return_value = {
@@ -33,7 +36,8 @@ def mock_keycloak():
             "preferred_username": "mockuser",
             "email": "mockuser@example.com",
         }
-        yield mock_auth_url, mock_token, mock_userinfo, mock_logout
+        mock_decode.return_value = {"realm_access": {"roles": []}}
+        yield mock_auth_url, mock_token, mock_userinfo, mock_logout, mock_decode
 
 
 @pytest.mark.asyncio
@@ -47,7 +51,7 @@ async def test_guest_view(user: User):
 
 @pytest.mark.asyncio
 async def test_login_redirect(user: User, mock_keycloak):
-    mock_auth_url, _, _, _ = mock_keycloak
+    mock_auth_url, _, _, _, _ = mock_keycloak
     await user.open("/")
     user.find("Get Started").click()
     # We use sleep instead of user.wait
@@ -58,7 +62,7 @@ async def test_login_redirect(user: User, mock_keycloak):
 
 @pytest.mark.asyncio
 async def test_auth_callback_success(user: User, mock_keycloak):
-    _, mock_token, mock_userinfo, _ = mock_keycloak
+    _, mock_token, mock_userinfo, _, _ = mock_keycloak
 
     # Simulate hitting the callback URL
     # Now that /auth returns a RedirectResponse to /, user.open should work
@@ -84,7 +88,7 @@ async def test_profile_icon_present(user: User):
 @pytest.mark.asyncio
 async def test_logout(user: User, mock_keycloak):
     """Verify that logging out works."""
-    _, _, _, mock_logout = mock_keycloak
+    _, _, _, mock_logout, _ = mock_keycloak
 
     # Log in first
     await user.open("/auth?code=mock_code")

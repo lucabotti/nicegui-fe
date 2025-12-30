@@ -63,7 +63,9 @@ async def test_auth_flow_with_multiple_users(
     with (
         unittest.mock.patch("keycloak.KeycloakOpenID.token") as mock_token,
         unittest.mock.patch("keycloak.KeycloakOpenID.userinfo") as mock_userinfo,
+        unittest.mock.patch("keycloak.KeycloakOpenID.decode_token") as mock_decode,
     ):
+        mock_decode.return_value = {"realm_access": {"roles": []}}
         mock_token.return_value = {
             "access_token": "fake_access_token",
             "refresh_token": "fake_refresh_token",
@@ -87,7 +89,9 @@ async def test_auth_flow_with_multiple_users(
     with (
         unittest.mock.patch("keycloak.KeycloakOpenID.token") as mock_token,
         unittest.mock.patch("keycloak.KeycloakOpenID.userinfo") as mock_userinfo,
+        unittest.mock.patch("keycloak.KeycloakOpenID.decode_token") as mock_decode,
     ):
+        mock_decode.return_value = {"realm_access": {"roles": []}}
         mock_token.return_value = {
             "access_token": "fake_access_token_2",
             "refresh_token": "fake_refresh_token_2",
@@ -106,3 +110,64 @@ async def test_auth_flow_with_multiple_users(
             user.find(marker="logout-item").click()
             await user.should_see("Welcome to the App!")
             mock_logout.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_admin_menu_visibility(
+    user: User, keycloak_container: KeycloakContainer, keycloak_app
+):
+    """
+    Verify that the Admin Menu is only visible to users with the 'admin' role.
+    """
+    # 1. Test user with admin role
+    with (
+        unittest.mock.patch("keycloak.KeycloakOpenID.token") as mock_token,
+        unittest.mock.patch("keycloak.KeycloakOpenID.userinfo") as mock_userinfo,
+        unittest.mock.patch("keycloak.KeycloakOpenID.decode_token") as mock_decode,
+        unittest.mock.patch("keycloak.KeycloakOpenID.logout") as mock_logout,
+    ):
+        mock_token.return_value = {
+            "access_token": "admin_access_token",
+            "refresh_token": "admin_refresh_token",
+        }
+        mock_userinfo.return_value = {
+            "preferred_username": "testadmin",
+            "email": "testadmin@example.com",
+        }
+        mock_decode.return_value = {"realm_access": {"roles": ["admin", "user"]}}
+
+        await user.open("/auth?code=admin_code")
+        await user.should_see("Hello testadmin!")
+        # Should see Admin Menu
+        await user.should_see("Admin Menu")
+
+        # Logout
+        user.find(marker="logout-item").click()
+        await user.should_see("Welcome to the App!")
+
+    # 2. Test user WITHOUT admin role
+    with (
+        unittest.mock.patch("keycloak.KeycloakOpenID.token") as mock_token,
+        unittest.mock.patch("keycloak.KeycloakOpenID.userinfo") as mock_userinfo,
+        unittest.mock.patch("keycloak.KeycloakOpenID.decode_token") as mock_decode,
+        unittest.mock.patch("keycloak.KeycloakOpenID.logout") as mock_logout,
+    ):
+        mock_token.return_value = {
+            "access_token": "user_access_token",
+            "refresh_token": "user_refresh_token",
+        }
+        mock_userinfo.return_value = {
+            "preferred_username": "testuser",
+            "email": "testuser@example.com",
+        }
+        mock_decode.return_value = {"realm_access": {"roles": ["user"]}}
+
+        await user.open("/auth?code=user_code")
+        await user.should_see("Hello testuser!")
+
+        # Should NOT see Admin Menu
+        await user.should_not_see("Admin Menu")
+
+        # Logout
+        user.find(marker="logout-item").click()
+        await user.should_see("Welcome to the App!")

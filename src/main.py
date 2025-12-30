@@ -59,12 +59,24 @@ async def auth(request: Request) -> RedirectResponse:
         )
         user_info = keycloak_openid.userinfo(token["access_token"])
 
+        # Decode token to get roles (skipping validation for simplicity in this demo,
+        # but in production you should validate)
+        # We use verify_signature=False because dealing with JWKS and Docker networking
+        # (issuer mismatch) can be tricky in dev/test setups.
+        decoded_token = keycloak_openid.decode_token(
+            token["access_token"],
+            validate=True,
+        )
+        realm_access = decoded_token.get("realm_access", {})
+        roles = realm_access.get("roles", [])
+
         app.storage.user.update(
             {
                 "username": user_info.get("preferred_username"),
                 "authenticated": True,
                 "access_token": token["access_token"],
                 "refresh_token": token["refresh_token"],
+                "roles": roles,
             }
         )
     except Exception as e:
@@ -91,6 +103,7 @@ def main_page() -> None:
     """The main application page."""
     authenticated = app.storage.user.get("authenticated", False)
     user = app.storage.user.get("username", "")
+    roles = app.storage.user.get("roles", [])
 
     with ui.header().classes("bg-primary text-white items-center justify-between"):
         with ui.row().classes("items-center"):
@@ -128,6 +141,13 @@ def main_page() -> None:
                     "clickable v-ripple"
                 ).classes("px-4")
             else:
+                if "admin" in roles:
+                    ui.item(
+                        "Admin Menu", on_click=lambda: ui.notify("Admin menu clicked")
+                    ).props("clickable v-ripple").classes("px-4").mark(
+                        "admin-menu-item"
+                    )
+
                 ui.item("Logout", on_click=logout).props("clickable v-ripple").classes(
                     "px-4"
                 ).mark("logout-item")
@@ -156,6 +176,4 @@ if __name__ in {"__main__", "__mp_main__", "nicegui"}:
     ui.run(
         port=8010,
         storage_secret="my_secret_key",
-        # storage_type="redis",
-        # redis_url=redis_url,
     )
