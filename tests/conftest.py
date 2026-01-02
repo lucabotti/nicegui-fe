@@ -21,6 +21,8 @@ def keycloak_container() -> Generator[KeycloakContainer, None, None]:
         # Note: with_realm_import_file mounts the file into the container
         # and adds the necessary startup arguments.
         keycloak.with_realm_import_file(realm_export_path)
+        # Ensure we wait for the server to be ready.
+        # Although KeycloakContainer has default wait strategy, sometimes it needs adjustment or explicit call.
         keycloak.start()
         yield keycloak
 

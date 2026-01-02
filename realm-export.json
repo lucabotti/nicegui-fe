@@ -7,6 +7,7 @@
       "username": "testadmin",
       "enabled": true,
       "emailVerified": true,
+      "email": "testadmin@example.com",
       "firstName": "Test",
       "lastName": "Admin",
       "credentials": [
@@ -16,12 +17,18 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "admin", "user" ]
+      "realmRoles": [
+        "admin",
+        "user",
+        "role1",
+        "role2"
+      ]
     },
     {
       "username": "testuser",
       "enabled": true,
       "emailVerified": true,
+      "email": "testuser@example.com",
       "firstName": "Test",
       "lastName": "User",
       "credentials": [
@@ -31,12 +38,16 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "user" ]
+      "realmRoles": [
+        "user",
+        "role1"
+      ]
     },
     {
       "username": "testuser2",
       "enabled": true,
       "emailVerified": true,
+      "email": "testuser2@example.com",
       "firstName": "Test",
       "lastName": "User2",
       "credentials": [
@@ -46,13 +57,26 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "user" ]
+      "realmRoles": [
+        "user",
+        "role2"
+      ]
     }
   ],
   "roles": {
     "realm": [
-      { "name": "admin" },
-      { "name": "user" }
+      {
+        "name": "admin"
+      },
+      {
+        "name": "user"
+      },
+      {
+        "name": "role1"
+      },
+      {
+        "name": "role2"
+      }
     ]
   },
   "clients": [
@@ -61,8 +85,12 @@
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
-      "redirectUris": [ "*" ],
-      "webOrigins": [ "*" ],
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
       "directAccessGrantsEnabled": true
     }
   ]
