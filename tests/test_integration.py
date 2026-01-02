@@ -56,6 +56,12 @@ async def test_user_roles(keycloak_container: KeycloakContainer):
         f"testuser should NOT have role2. Found: {realm_roles}"
     )
 
+    # Verify phone number claim
+    assert "phone_number" in decoded_payload, "phone_number claim should be present"
+    assert decoded_payload["phone_number"] == "918273645098", (
+        f"Unexpected phone number: {decoded_payload.get('phone_number')}"
+    )
+
     # --- Test User 2 (testuser2) ---
     # Expected: Has role2, does NOT have role1
     try:
@@ -82,4 +88,12 @@ async def test_user_roles(keycloak_container: KeycloakContainer):
     )
     assert "role1" not in realm_roles2, (
         f"testuser2 should NOT have role1. Found: {realm_roles2}"
+    )
+
+    # Verify phone number claim for user 2
+    assert "phone_number" in decoded_payload2, (
+        "phone_number claim should be present for user2"
+    )
+    assert decoded_payload2["phone_number"] == "564738291023", (
+        f"Unexpected phone number for user2: {decoded_payload2.get('phone_number')}"
     )

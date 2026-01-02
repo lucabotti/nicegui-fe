@@ -8,6 +8,11 @@
       "enabled": true,
       "emailVerified": true,
       "email": "testadmin@example.com",
+      "attributes": {
+        "phoneNumber": [
+          "192837465012"
+        ]
+      },
       "firstName": "Test",
       "lastName": "Admin",
       "credentials": [
@@ -29,6 +34,11 @@
       "enabled": true,
       "emailVerified": true,
       "email": "testuser@example.com",
+      "attributes": {
+        "phoneNumber": [
+          "918273645098"
+        ]
+      },
       "firstName": "Test",
       "lastName": "User",
       "credentials": [
@@ -48,6 +58,11 @@
       "enabled": true,
       "emailVerified": true,
       "email": "testuser2@example.com",
+      "attributes": {
+        "phoneNumber": [
+          "564738291023"
+        ]
+      },
       "firstName": "Test",
       "lastName": "User2",
       "credentials": [
@@ -91,7 +106,23 @@
       "webOrigins": [
         "*"
       ],
-      "directAccessGrantsEnabled": true
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "phone-number-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "phoneNumber",
+            "claim.name": "phone_number",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     }
   ]
 }
