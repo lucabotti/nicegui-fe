@@ -26,11 +26,11 @@ def keycloak_app(
 
     # We need to reload the main module to ensure it picks up the new
     # environment variables
-    import main
+    import src.main
 
-    reload(main)
+    reload(src.main)
 
-    return main.app
+    return src.main.app
 
 
 @pytest.mark.asyncio
@@ -41,7 +41,7 @@ async def test_keycloak_metadata_discovery(
     Verify that the app can successfully discover Keycloak metadata.
     This proves the integration at the network level and configuration level.
     """
-    from main import keycloak_openid
+    from src.main import keycloak_openid
 
     # python-keycloak's well_known is called internally.
     # We can trigger it manually to verify.

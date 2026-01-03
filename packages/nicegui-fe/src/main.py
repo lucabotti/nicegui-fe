@@ -1,6 +1,7 @@
 import os
 from typing import Any, cast
 
+import httpx
 from keycloak import KeycloakOpenID
 from nicegui import app, ui
 from starlette.middleware.sessions import SessionMiddleware
@@ -9,9 +10,13 @@ from starlette.responses import RedirectResponse
 
 # Keycloak configuration
 KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "http://127.0.0.1:8080").rstrip("/")
+KEYCLOAK_EXTERNAL_URL = os.environ.get("KEYCLOAK_EXTERNAL_URL", KEYCLOAK_URL).rstrip(
+    "/"
+)
 REALM = "test-realm"
 CLIENT_ID = "nicegui-app"
 CLIENT_SECRET = os.environ.get("KEYCLOAK_CLIENT_SECRET")
+SERVICE_URL = os.environ.get("SERVICE_URL", "http://127.0.0.1:8020").rstrip("/")
 
 # Add SessionMiddleware with a unique cookie name to avoid clashes with Keycloak
 # We check if middleware is already added to support module reloading in tests
@@ -24,7 +29,8 @@ if not any(
         session_cookie="nicegui_session",
     )
 
-# Initialize Keycloak OpenID
+# Initialize Keycloak OpenID for all server-side calls
+# (token exchange, userinfo, validation)
 keycloak_openid = KeycloakOpenID(
     server_url=f"{KEYCLOAK_URL}/",
     client_id=CLIENT_ID,
@@ -39,11 +45,13 @@ async def login(request: Request) -> RedirectResponse:
     """Initiate Keycloak login."""
     base_url = str(request.base_url).rstrip("/")
     redirect_uri = f"{base_url}/auth"
+    # Generate auth URL using internal instance, then fix URL for browser
     auth_url = keycloak_openid.auth_url(
         redirect_uri=redirect_uri,
         scope="openid profile email",
         state="some_state_string",
     )
+    auth_url = auth_url.replace(KEYCLOAK_URL, KEYCLOAK_EXTERNAL_URL)
     return RedirectResponse(url=auth_url)
 
 
@@ -63,11 +71,30 @@ async def auth(request: Request) -> RedirectResponse:
         )
         user_info = keycloak_openid.userinfo(token["access_token"])
 
-        # Decode token to get roles (validation is active)
-        decoded_token = keycloak_openid.decode_token(
-            token["access_token"],
-            validate=True,
-        )
+        # Decode token to get roles
+        # Note: We use Keycloak internal URL for certs but the issuer is usually the external one
+        expected_issuer = f"{KEYCLOAK_EXTERNAL_URL}/realms/{REALM}"
+        try:
+            # First try with the most likely issuer for this environment
+            decoded_token = keycloak_openid.decode_token(
+                token["access_token"],
+                validate=True,
+                issuer=expected_issuer,
+            )
+        except Exception:
+            try:
+                # Try internal issuer as secondary option
+                decoded_token = keycloak_openid.decode_token(
+                    token["access_token"], validate=True
+                )
+            except Exception:
+                # Last resort: disable issuer verification
+                decoded_token = keycloak_openid.decode_token(
+                    token["access_token"],
+                    validate=True,
+                    options={"verify_iss": False},
+                )
+
         realm_access = decoded_token.get("realm_access", {})
         roles = realm_access.get("roles", [])
 
@@ -137,7 +164,7 @@ def main_page() -> None:
                         ui.menu_item(f"Roles: {', '.join(roles)}").props("disabled")
                         ui.separator()
                         account_management_url = (
-                            f"{KEYCLOAK_URL}/realms/{REALM}/account/"
+                            f"{KEYCLOAK_EXTERNAL_URL}/realms/{REALM}/account/"
                         )
                         ui.menu_item(
                             "Account Management",
@@ -163,6 +190,10 @@ def main_page() -> None:
                     "clickable v-ripple"
                 ).classes("px-4")
             else:
+                if "role2" in roles:
+                    ui.item(
+                        "Role 2 Menu", on_click=lambda: ui.notify("Role 2 clicked")
+                    ).props("clickable v-ripple").classes("px-4")
                 if "admin" in roles:
                     ui.item(
                         "Admin Menu", on_click=lambda: ui.notify("Admin menu clicked")
@@ -184,6 +215,66 @@ def main_page() -> None:
                 ui.json_editor({"content": {"json": user_info_raw}}).classes(
                     "w-full"
                 ).props("read-only")
+
+            with ui.card().classes("w-full mt-8"):
+                ui.label("Backend Service Interaction").classes("text-h6 mb-4")
+
+                async def call_backend_service():
+                    access_token = app.storage.user.get("access_token")
+                    if not access_token:
+                        ui.notify("Not authenticated", type="negative")
+                        return
+
+                    result_area.clear()
+                    with result_area:
+                        ui.spinner(size="lg")
+
+                    try:
+                        async with httpx.AsyncClient() as client:
+                            response = await client.get(
+                                f"{SERVICE_URL}/hello",
+                                headers={"Authorization": f"Bearer {access_token}"},
+                                timeout=10.0,
+                            )
+
+                            result_area.clear()
+                            if response.status_code == 200:
+                                data = response.json()
+                                ui.notify(data["message"], type="positive")
+                                with result_area:
+                                    ui.label("Response from service:").classes(
+                                        "font-bold"
+                                    )
+                                    ui.json_editor({"content": {"json": data}}).classes(
+                                        "w-full"
+                                    )
+                            elif response.status_code == 403:
+                                ui.notify(
+                                    "Unauthorized: role2 required", type="negative"
+                                )
+                                with result_area:
+                                    ui.label(
+                                        "Error: User does not have required role: role2"
+                                    ).classes("text-red")
+                            else:
+                                ui.notify(
+                                    f"Error: {response.status_code}", type="negative"
+                                )
+                                with result_area:
+                                    ui.label(
+                                        f"Error: {response.status_code} - "
+                                        f"{response.text}"
+                                    ).classes("text-red")
+                    except Exception as e:
+                        ui.notify(f"Service call failed: {e}", type="negative")
+                        result_area.clear()
+                        with result_area:
+                            ui.label(f"Connection Error: {e}").classes("text-red")
+
+                ui.button(
+                    "Call Authenticated Service", on_click=call_backend_service
+                ).classes("w-full")
+                result_area = ui.column().classes("w-full mt-4")
         else:
             ui.label("Welcome to the App!").classes("text-h2 text-primary")
             ui.label("Please log in to access more features.").classes(

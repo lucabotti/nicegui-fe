@@ -1,14 +1,12 @@
 [project]
-name = "nicegui-fe"
+name = "nicegui-project"
 version = "0.1.0"
-description = "Add your description here"
+description = "Workspace for NiceGUI Frontend and FastAPI Service"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = [
-    "nicegui[redis]>=3.4.1",
-    "httpx",
-    "python-keycloak>=5.8.1",
-]
+
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [dependency-groups]
 dev = [
@@ -22,19 +20,14 @@ dev = [
 ]
 
 [tool.ruff]
-# Target version for Python
 target-version = "py312"
 
 [tool.ruff.lint]
-# Rules to enable
 select = ["E", "F", "I", "U"]
-# Rules to ignore
 ignore = []
-# Allow autofix for all enabled rules (when supported)
 fixable = ["ALL"]
 
 [tool.ruff.format]
-# Enable black-compatible formatting
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false

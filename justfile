@@ -8,7 +8,8 @@ install-hooks:
 
 # Run tests
 test:
-    uv run pytest
+    uv run --package nicegui-fe pytest packages/nicegui-fe/tests
+    uv run --package fastapi-svc pytest packages/fastapi-svc/tests
 
 # Lint and format code
 lint:
@@ -19,6 +20,10 @@ lint:
 type:
     uv run ty check
 
-# Run in development mode with auto-reload
+# Run frontend
 run:
-    uv run python src/main.py
+    uv run --package nicegui-fe python packages/nicegui-fe/src/main.py
+
+# Run the backend service
+run-service:
+    uv run --package fastapi-svc python packages/fastapi-svc/src/main.py

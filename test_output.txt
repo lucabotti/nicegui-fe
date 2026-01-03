@@ -1,0 +1,43 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: /home/lbotti/Projects/lucabotti/antigravity/nicegui-fe
+configfile: pytest.ini
+plugins: anyio-4.12.0, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 17 items
+
+tests/test_backend_service.py ....                                       [ 23%]
+tests/test_integration.py .                                              [ 29%]
+tests/test_integration_service.py ..                                     [ 41%]
+tests/test_keycloak_integration.py ....                                  [ 64%]
+tests/test_main.py ......                                                [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/async_property/base.py:10
+  /home/lbotti/Projects/lucabotti/antigravity/nicegui-fe/.venv/lib/python3.14/site-packages/async_property/base.py:10: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    assert is_coroutine(func), 'Can only use with async def'
+
+.venv/lib/python3.14/site-packages/testcontainers/core/waiting_utils.py:215
+  /home/lbotti/Projects/lucabotti/antigravity/nicegui-fe/.venv/lib/python3.14/site-packages/testcontainers/core/waiting_utils.py:215: DeprecationWarning: The @wait_container_is_ready decorator is deprecated and will be removed in a future version. Use structured wait strategies instead: container.waiting_for(HttpWaitStrategy(8080).for_status_code(200)) or container.waiting_for(LogMessageWaitStrategy('ready'))
+    @wait_container_is_ready()
+
+.venv/lib/python3.14/site-packages/testcontainers/keycloak/__init__.py:88
+  /home/lbotti/Projects/lucabotti/antigravity/nicegui-fe/.venv/lib/python3.14/site-packages/testcontainers/keycloak/__init__.py:88: DeprecationWarning: The @wait_container_is_ready decorator is deprecated and will be removed in a future version. Use structured wait strategies instead: container.waiting_for(HttpWaitStrategy(8080).for_status_code(200)) or container.waiting_for(LogMessageWaitStrategy('ready'))
+    @wait_container_is_ready(requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout)
+
+.venv/lib/python3.14/site-packages/testcontainers/redis/__init__.py:46
+  /home/lbotti/Projects/lucabotti/antigravity/nicegui-fe/.venv/lib/python3.14/site-packages/testcontainers/redis/__init__.py:46: DeprecationWarning: The @wait_container_is_ready decorator is deprecated and will be removed in a future version. Use structured wait strategies instead: container.waiting_for(HttpWaitStrategy(8080).for_status_code(200)) or container.waiting_for(LogMessageWaitStrategy('ready'))
+    @wait_container_is_ready(redis.exceptions.ConnectionError)
+
+tests/test_integration.py::test_user_roles
+tests/test_integration.py::test_user_roles
+  /home/lbotti/Projects/lucabotti/antigravity/nicegui-fe/.venv/lib/python3.14/site-packages/testcontainers/keycloak/__init__.py:99: DeprecationWarning: The wait_for_logs function with string or callable predicates is deprecated and will be removed in a future version. Use structured wait strategies instead: container.waiting_for(LogMessageWaitStrategy('ready')) or container.waiting_for(LogMessageWaitStrategy(re.compile(r'pattern')))
+    wait_for_logs(self, "started in \\d+\\.\\d+s")
+
+tests/test_integration.py::test_user_roles
+tests/test_integration.py::test_user_roles
+  /home/lbotti/Projects/lucabotti/antigravity/nicegui-fe/.venv/lib/python3.14/site-packages/testcontainers/keycloak/__init__.py:100: DeprecationWarning: The wait_for_logs function with string or callable predicates is deprecated and will be removed in a future version. Use structured wait strategies instead: container.waiting_for(LogMessageWaitStrategy('ready')) or container.waiting_for(LogMessageWaitStrategy(re.compile(r'pattern')))
+    wait_for_logs(self, "Created temporary admin user|Added user '")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 17 passed, 8 warnings in 36.13s ========================

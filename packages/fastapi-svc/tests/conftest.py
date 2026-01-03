@@ -13,7 +13,7 @@ def keycloak_container() -> Generator[KeycloakContainer, None, None]:
     """
     # Path to the realm export file relative to the project root
     realm_export_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "realm-export.json")
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "realm-export.json")
     )
 
     with KeycloakContainer("quay.io/keycloak/keycloak:26.0.0") as keycloak:

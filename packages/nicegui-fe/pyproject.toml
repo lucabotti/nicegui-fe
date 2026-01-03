@@ -1,0 +1,11 @@
+[project]
+name = "nicegui-fe"
+version = "0.1.0"
+description = "NiceGUI Frontend"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "nicegui[redis]>=3.4.1",
+    "httpx",
+    "python-keycloak>=5.8.1",
+]
