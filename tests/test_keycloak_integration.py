@@ -171,3 +171,34 @@ async def test_admin_menu_visibility(
         # Logout
         user.find(marker="logout-item").click()
         await user.should_see("Welcome to the App!")
+
+
+@pytest.mark.asyncio
+async def test_account_management_access(
+    user: User, keycloak_container: KeycloakContainer, keycloak_app
+):
+    """
+    Verify that the Account Management link is visible after a successful login.
+    """
+    with (
+        unittest.mock.patch("keycloak.KeycloakOpenID.token") as mock_token,
+        unittest.mock.patch("keycloak.KeycloakOpenID.userinfo") as mock_userinfo,
+        unittest.mock.patch("keycloak.KeycloakOpenID.decode_token") as mock_decode,
+    ):
+        mock_token.return_value = {
+            "access_token": "acc_access_token",
+            "refresh_token": "acc_refresh_token",
+        }
+        mock_userinfo.return_value = {
+            "preferred_username": "acctestuser",
+            "email": "acctestuser@example.com",
+            "given_name": "Acc",
+            "family_name": "Test",
+        }
+        mock_decode.return_value = {"realm_access": {"roles": ["user"]}}
+
+        await user.open("/auth?code=acc_code")
+        await user.should_see("Welcome, acctestuser")
+
+        # The Account Management link should be present in the profile menu
+        await user.should_see("Account Management")

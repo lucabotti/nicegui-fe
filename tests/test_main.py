@@ -108,3 +108,17 @@ async def test_logout(user: User, mock_keycloak):
 
     # Verify logout was called
     mock_logout.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_account_management_link(user: User, mock_keycloak):
+    """Verify that the Account Management link is present for authenticated users."""
+    # Log in first
+    await user.open("/auth?code=mock_code")
+    await user.should_see("Welcome, mockuser")
+
+    # The link is in a menu that appears when clicking the profile button.
+    # However, nicegui-testing's user.should_see might be able to find it
+    # if it's already in the DOM (Quasar menus are often in the DOM).
+    # Let's check if it's visible.
+    await user.should_see("Account Management")

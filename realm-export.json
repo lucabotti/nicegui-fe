@@ -13,8 +13,8 @@
           "192837465012"
         ]
       },
-      "firstName": "Test",
-      "lastName": "Admin",
+      "firstName": "Bruce",
+      "lastName": "Wayne",
       "credentials": [
         {
           "type": "password",
@@ -27,7 +27,13 @@
         "user",
         "role1",
         "role2"
-      ]
+      ],
+      "clientRoles": {
+        "account": [
+          "manage-account",
+          "view-profile"
+        ]
+      }
     },
     {
       "username": "testuser",
@@ -39,8 +45,8 @@
           "918273645098"
         ]
       },
-      "firstName": "Test",
-      "lastName": "User",
+      "firstName": "Clark",
+      "lastName": "Kent",
       "credentials": [
         {
           "type": "password",
@@ -51,7 +57,13 @@
       "realmRoles": [
         "user",
         "role1"
-      ]
+      ],
+      "clientRoles": {
+        "account": [
+          "manage-account",
+          "view-profile"
+        ]
+      }
     },
     {
       "username": "testuser2",
@@ -63,8 +75,8 @@
           "564738291023"
         ]
       },
-      "firstName": "Test",
-      "lastName": "User2",
+      "firstName": "Barry",
+      "lastName": "Allen",
       "credentials": [
         {
           "type": "password",
@@ -75,7 +87,13 @@
       "realmRoles": [
         "user",
         "role2"
-      ]
+      ],
+      "clientRoles": {
+        "account": [
+          "manage-account",
+          "view-profile"
+        ]
+      }
     }
   ],
   "roles": {
