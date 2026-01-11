@@ -8,4 +8,8 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "python-keycloak>=5.8.1",
+    "opentelemetry-api>=1.22.0",
+    "opentelemetry-sdk>=1.22.0",
+    "opentelemetry-instrumentation-fastapi>=0.43b0",
+    "opentelemetry-exporter-otlp>=1.22.0",
 ]
