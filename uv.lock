@@ -2,6 +2,13 @@ version = 1
 revision = 3
 requires-python = ">=3.14"
 
+[manifest]
+members = [
+    "fastapi-svc",
+    "nicegui-fe",
+    "nicegui-project",
+]
+
 [[package]]
 name = "aiofiles"
 version = "25.1.0"
@@ -353,6 +360,23 @@ wheels = [
 ]
 
 [[package]]
+name = "fastapi-svc"
+version = "0.1.0"
+source = { virtual = "packages/fastapi-svc" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "python-keycloak" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi" },
+    { name = "python-keycloak", specifier = ">=5.8.1" },
+    { name = "uvicorn" },
+]
+
+[[package]]
 name = "filelock"
 version = "3.20.1"
 source = { registry = "https://pypi.org/simple" }
@@ -648,12 +672,24 @@ redis = [
 [[package]]
 name = "nicegui-fe"
 version = "0.1.0"
-source = { virtual = "." }
+source = { virtual = "packages/nicegui-fe" }
 dependencies = [
     { name = "httpx" },
     { name = "nicegui", extra = ["redis"] },
     { name = "python-keycloak" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx" },
+    { name = "nicegui", extras = ["redis"], specifier = ">=3.4.1" },
+    { name = "python-keycloak", specifier = ">=5.8.1" },
+]
+
+[[package]]
+name = "nicegui-project"
+version = "0.1.0"
+source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
@@ -667,11 +703,6 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "httpx" },
-    { name = "nicegui", extras = ["redis"], specifier = ">=3.4.1" },
-    { name = "python-keycloak", specifier = ">=5.8.1" },
-]
 
 [package.metadata.requires-dev]
 dev = [

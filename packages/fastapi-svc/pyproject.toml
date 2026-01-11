@@ -1,0 +1,11 @@
+[project]
+name = "fastapi-svc"
+version = "0.1.0"
+description = "FastAPI Service"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "python-keycloak>=5.8.1",
+]

@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:18
+    container_name: db-postgres-18
     volumes:
       - postgres_data:/var/lib/postgresql
     environment:
@@ -15,11 +16,14 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
+    container_name: keycloak-26.0
     command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: localhost
       KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
       KC_HTTP_ENABLED: "true"
     ports:
       - "8080:8080"
@@ -28,6 +32,7 @@ services:
 
   redis:
     image: redis:7
+    container_name: redis-7
     ports:
       - "6379:6379"
     healthcheck:
@@ -35,6 +40,42 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  api-service:
+    build:
+      context: .
+      dockerfile: packages/fastapi-svc/Dockerfile
+    command: uv run --package fastapi-svc python packages/fastapi-svc/src/main.py
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_EXTERNAL_URL: http://localhost:8080
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+    ports:
+      - "8020:8020"
+    depends_on:
+      keycloak:
+        condition: service_started
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/nicegui-fe/Dockerfile
+    command: uv run --package nicegui-fe python packages/nicegui-fe/src/main.py
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_EXTERNAL_URL: http://localhost:8080
+      SERVICE_URL: http://api-service:8020
+      REDIS_URL: redis://redis:6379
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+    ports:
+      - "8010:8010"
+    depends_on:
+      keycloak:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      api-service:
+        condition: service_started
 
 volumes:
   postgres_data:
