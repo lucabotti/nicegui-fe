@@ -1,4 +1,61 @@
 services:
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    environment:
+      - DOCKER_API_VERSION=1.52
+    ports:
+      - "80:80"
+      - "8081:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.entrypoints=web"
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: oauth2-proxy
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      OAUTH2_PROXY_PROVIDER: keycloak-oidc
+      OAUTH2_PROXY_CLIENT_ID: api-gateway
+      OAUTH2_PROXY_CLIENT_SECRET: api-gateway-secret
+      OAUTH2_PROXY_OIDC_ISSUER_URL: http://keycloak.localhost:8080/realms/test-realm
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      OAUTH2_PROXY_UPSTREAMS: static://200
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_COOKIE_SECRET: "deadbeefdeadbeefdeadbeefdeadbeef"
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_REDIRECT_URL: http://api.localhost/oauth2/callback
+      OAUTH2_PROXY_WHITELIST_DOMAINS: ".localhost"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      # This allows passing the authorization header to the upstream
+      OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER: "true"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      # Enable debug logging
+      OAUTH2_PROXY_LOGGING_LEVEL: "debug"
+      OAUTH2_PROXY_STANDARD_LOGGING: "true"
+      OAUTH2_PROXY_AUTH_LOGGING: "true"
+      OAUTH2_PROXY_REQUEST_LOGGING: "true"
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.oauth2-proxy.rule=Host(`api.localhost`) && PathPrefix(`/oauth2`)"
+      - "traefik.http.routers.oauth2-proxy.entrypoints=web"
+      - "traefik.http.services.oauth2-proxy.loadbalancer.server.port=4180"
+
   db:
     image: postgres:18
     container_name: db-postgres-18
@@ -21,20 +78,27 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      KC_HOSTNAME: localhost
+      KC_HOSTNAME: keycloak.localhost
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
       KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
     ports:
       - "8080:8080"
+      - "9000:9000"
     volumes:
       - ./realm-export.json:/opt/keycloak/data/import/realm.json:ro
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
 
   redis:
     image: redis:7
     container_name: redis-7
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -48,13 +112,16 @@ services:
     command: uv run --package fastapi-svc python packages/fastapi-svc/src/main.py
     environment:
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_EXTERNAL_URL: http://localhost:8080
+      KEYCLOAK_EXTERNAL_URL: http://keycloak.localhost:8080
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
-    ports:
-      - "8020:8020"
     depends_on:
       keycloak:
         condition: service_started
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api-service.rule=Host(`api.localhost`) && PathPrefix(`/`)"
+      - "traefik.http.routers.api-service.entrypoints=web"
+      - "traefik.http.services.api-service.loadbalancer.server.port=8020"
 
   frontend:
     build:
@@ -63,12 +130,10 @@ services:
     command: uv run --package nicegui-fe python packages/nicegui-fe/src/main.py
     environment:
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_EXTERNAL_URL: http://localhost:8080
-      SERVICE_URL: http://api-service:8020
+      KEYCLOAK_EXTERNAL_URL: http://keycloak.localhost:8080
+      SERVICE_URL: http://api.localhost
       REDIS_URL: redis://redis:6379
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
-    ports:
-      - "8010:8010"
     depends_on:
       keycloak:
         condition: service_started
@@ -76,6 +141,14 @@ services:
         condition: service_healthy
       api-service:
         condition: service_started
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
+      - "api.localhost:host-gateway"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=8010"
 
 volumes:
   postgres_data:

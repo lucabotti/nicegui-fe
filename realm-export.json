@@ -141,6 +141,20 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "api-gateway",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "api-gateway-secret",
+      "redirectUris": [
+        "http://api.localhost/oauth2/callback"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "directAccessGrantsEnabled": true
     }
   ]
 }
