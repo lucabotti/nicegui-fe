@@ -6,7 +6,52 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from keycloak import KeycloakOpenID
 
+# OpenTelemetry imports
+from opentelemetry import trace, metrics
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
+
+# Configure OpenTelemetry
+OTEL_ENDPOINT = os.environ.get(
+    "OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317"
+)
+
+resource = Resource.create({"service.name": "fastapi-svc"})
+
+# Setup tracing
+trace.set_tracer_provider(TracerProvider(resource=resource))
+tracer = trace.get_tracer(__name__)
+span_processor = BatchSpanProcessor(
+    OTLPSpanExporter(endpoint=OTEL_ENDPOINT, insecure=True)
+)
+trace.get_tracer_provider().add_span_processor(span_processor)
+
+# Setup metrics
+metric_reader = PeriodicExportingMetricReader(
+    OTLPMetricExporter(endpoint=OTEL_ENDPOINT, insecure=True)
+)
+metrics.set_meter_provider(
+    MeterProvider(resource=resource, metric_readers=[metric_reader])
+)
+meter = metrics.get_meter(__name__)
+
+# Custom metrics
+hello_endpoint_counter = meter.create_counter(
+    name="hello_endpoint_calls",
+    description="Number of calls to /hello endpoint",
+    unit="1",
+)
+
 app = FastAPI(title="Backend Service")
+
+# Instrument FastAPI with OpenTelemetry
+FastAPIInstrumentor.instrument_app(app)
 
 # Configure CORS
 app.add_middleware(
@@ -70,6 +115,9 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 
 @app.get("/hello")
 async def hello(user: Annotated[dict, Depends(get_current_user)]):
+    # Increment custom metric
+    hello_endpoint_counter.add(1, {"user": user.get("preferred_username", "unknown")})
+
     # Check for role2 in realm_access
     roles = user.get("realm_access", {}).get("roles", [])
     if "role2" not in roles:
