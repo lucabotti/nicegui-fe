@@ -1,9 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 from keycloak import KeycloakOpenID
-from testcontainers.keycloak import KeycloakContainer
-
 from src.main import app
+from testcontainers.keycloak import KeycloakContainer
 
 
 @pytest.fixture

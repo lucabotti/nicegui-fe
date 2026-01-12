@@ -40,8 +40,8 @@ async def test_user_roles(keycloak_container: KeycloakContainer):
 
     # Manual decode of access token payload to check roles
     # We trust the token because userinfo call succeeded.
-    import json
     import base64
+    import json
 
     # JWT is header.payload.signature
     payload_part = access_token.split(".")[1]

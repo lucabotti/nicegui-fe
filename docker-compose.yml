@@ -107,9 +107,9 @@ services:
 
   api-service:
     build:
-      context: .
-      dockerfile: packages/fastapi-svc/Dockerfile
-    command: uv run --package fastapi-svc python packages/fastapi-svc/src/main.py
+      context: packages/fastapi-svc
+      dockerfile: Dockerfile
+    command: uv run --package fastapi-svc python src/main.py
     environment:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_EXTERNAL_URL: http://keycloak.localhost:8080
@@ -125,9 +125,9 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: packages/nicegui-fe/Dockerfile
-    command: uv run --package nicegui-fe python packages/nicegui-fe/src/main.py
+      context: packages/nicegui-fe
+      dockerfile: Dockerfile
+    command: uv run --package nicegui-fe python src/main.py
     environment:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_EXTERNAL_URL: http://keycloak.localhost:8080
@@ -149,6 +149,33 @@ services:
       - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
       - "traefik.http.routers.frontend.entrypoints=web"
       - "traefik.http.services.frontend.loadbalancer.server.port=8010"
+
+  htmx-frontend:
+    build:
+      context: packages/htmx-fe
+      dockerfile: Dockerfile
+    command: uv run --package htmx-fe python src/htmx_fe/main.py
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_EXTERNAL_URL: http://keycloak.localhost:8080
+      SERVICE_URL: http://api.localhost
+      REDIS_URL: redis://redis:6379
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+    depends_on:
+      keycloak:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      api-service:
+        condition: service_started
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
+      - "api.localhost:host-gateway"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.htmx-frontend.rule=Host(`htmx.localhost`)"
+      - "traefik.http.routers.htmx-frontend.entrypoints=web"
+      - "traefik.http.services.htmx-frontend.loadbalancer.server.port=8011"
 
 volumes:
   postgres_data:

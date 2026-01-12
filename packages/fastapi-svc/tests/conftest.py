@@ -7,7 +7,7 @@ from testcontainers.redis import RedisContainer
 
 
 @pytest.fixture(scope="session")
-def keycloak_container() -> Generator[KeycloakContainer, None, None]:
+def keycloak_container() -> Generator[KeycloakContainer]:
     """
     Fixture to start a Keycloak container with the realm-export.json imported.
     """
@@ -28,7 +28,7 @@ def keycloak_container() -> Generator[KeycloakContainer, None, None]:
 
 
 @pytest.fixture(scope="session")
-def redis_container() -> Generator[RedisContainer, None, None]:
+def redis_container() -> Generator[RedisContainer]:
     """
     Fixture to start a Redis container.
     """
