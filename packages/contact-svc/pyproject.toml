@@ -1,0 +1,20 @@
+[project]
+name = "contact-svc"
+version = "0.1.0"
+description = "Contact Management Service"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy[asyncio]",
+    "alembic",
+    "asyncpg",
+    "psycopg2-binary",
+    "pydantic[email]",
+    "httpx",
+]
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"

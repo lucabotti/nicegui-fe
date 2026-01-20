@@ -61,6 +61,9 @@ services:
     container_name: db-postgres-18
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
@@ -144,6 +147,8 @@ services:
     extra_hosts:
       - "keycloak.localhost:host-gateway"
       - "api.localhost:host-gateway"
+    volumes:
+      - ./packages/nicegui-fe/src:/app/src
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
@@ -171,11 +176,52 @@ services:
     extra_hosts:
       - "keycloak.localhost:host-gateway"
       - "api.localhost:host-gateway"
+    volumes:
+      - ./packages/htmx-fe/src:/app/src
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.htmx-frontend.rule=Host(`htmx.localhost`)"
       - "traefik.http.routers.htmx-frontend.entrypoints=web"
       - "traefik.http.services.htmx-frontend.loadbalancer.server.port=8011"
+
+  org-svc:
+    build:
+      context: packages/org-svc
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PORT=8001
+      - DATABASE_URL=postgresql://keycloak:password@db:5432/contacts
+    volumes:
+      - ./packages/org-svc/src:/app/src
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.org-svc.rule=Host(`api.localhost`) && PathPrefix(`/orgs`)"
+      - "traefik.http.routers.org-svc.entrypoints=web"
+      - "traefik.http.services.org-svc.loadbalancer.server.port=8001"
+
+  contact-svc:
+    build:
+      context: packages/contact-svc
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      org-svc:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql://keycloak:password@db:5432/contacts
+      - ORG_SVC_URL=http://org-svc:8001
+      - PORT=8002
+    volumes:
+      - ./packages/contact-svc/src:/app/src
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.contact-svc.rule=Host(`api.localhost`) && PathPrefix(`/contacts`)"
+      - "traefik.http.routers.contact-svc.entrypoints=web"
+      - "traefik.http.services.contact-svc.loadbalancer.server.port=8002"
 
 volumes:
   postgres_data:

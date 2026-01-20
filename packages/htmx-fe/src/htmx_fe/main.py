@@ -16,6 +16,10 @@ REALM = "test-realm"
 CLIENT_ID = "nicegui-app"
 CLIENT_SECRET = os.environ.get("KEYCLOAK_CLIENT_SECRET")
 SERVICE_URL = os.environ.get("SERVICE_URL", "http://127.0.0.1:8020").rstrip("/")
+CONTACT_SVC_URL = os.environ.get(
+    "CONTACT_SVC_URL", "http://api.localhost/contacts"
+).rstrip("/")
+ORG_SVC_URL = os.environ.get("ORG_SVC_URL", "http://api.localhost/orgs").rstrip("/")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "my_secret_key")
 
 app = FastAPI(title="HTMX Frontend")
@@ -158,7 +162,7 @@ async def service_call(request: Request):
 
     access_token = user["access_token"]
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(
                 f"{SERVICE_URL}/hello",
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -190,6 +194,204 @@ async def service_call(request: Request):
             "partials/service_result.html",
             {"error": f"Service call failed: {e}"},
         )
+
+
+@app.get("/contacts", response_class=HTMLResponse)
+async def contacts_page(request: Request):
+    """The contact management page."""
+    user = request.session.get("user")
+    if not user or not user.get("authenticated"):
+        return RedirectResponse(url="/login")
+
+    organizations = []
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.get(f"{ORG_SVC_URL}/", timeout=10.0)
+            if response.status_code == 200:
+                organizations = response.json()
+    except Exception as e:
+        print(f"Error fetching organizations from {ORG_SVC_URL}: {e}")
+        pass
+
+    return templates.TemplateResponse(
+        request,
+        "contacts.html",
+        {"user": user, "organizations": organizations},
+    )
+
+
+@app.get("/contacts/list", response_class=HTMLResponse)
+async def list_contacts(request: Request):
+    """List contacts via HTMX partial."""
+    user = request.session.get("user")
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    contacts = []
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.get(f"{CONTACT_SVC_URL}/", timeout=10.0)
+            if response.status_code == 200:
+                contacts = response.json()
+    except Exception as e:
+        print(f"Failed to fetch contacts from {CONTACT_SVC_URL}: {e}")
+
+    return templates.TemplateResponse(
+        request,
+        "partials/contact_list.html",
+        {"contacts": contacts},
+    )
+
+
+@app.post("/contacts", response_class=HTMLResponse)
+async def create_contact(request: Request):
+    """Create a new contact."""
+    user = request.session.get("user")
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    form_data = await request.form()
+    new_contact = {
+        "first_name": form_data.get("first_name"),
+        "last_name": form_data.get("last_name"),
+        "role": form_data.get("role"),
+        "organization_id": form_data.get("organization_id") or None,
+        "tags": [t.strip() for t in form_data.get("tags", "").split(",") if t.strip()],
+        "emails": [{"address": form_data.get("email")}],
+        "phone_numbers": [{"number": form_data.get("phone")}],
+    }
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.post(
+                f"{CONTACT_SVC_URL}/", json=new_contact, timeout=10.0
+            )
+            if response.status_code == 200:
+                # After successful creation, return the updated list
+                return await list_contacts(request)
+            else:
+                return HTMLResponse(
+                    f"Error: {response.text}", status_code=response.status_code
+                )
+    except Exception as e:
+        return HTMLResponse(f"Creation failed: {e}", status_code=500)
+
+
+@app.delete("/contacts/{contact_id}")
+async def delete_contact(request: Request, contact_id: int):
+    """Delete a contact."""
+    user = request.session.get("user")
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.delete(
+                f"{CONTACT_SVC_URL}/{contact_id}", timeout=10.0
+            )
+            if response.status_code == 200:
+                return HTMLResponse("")  # Empty response for outerHTML swap
+            else:
+                return HTMLResponse(
+                    f"Error: {response.text}", status_code=response.status_code
+                )
+    except Exception as e:
+        return HTMLResponse(f"Deletion failed: {e}", status_code=500)
+
+
+@app.get("/organizations", response_class=HTMLResponse)
+async def organizations_page(request: Request):
+    """The organization management page."""
+    user = request.session.get("user")
+    if not user or not user.get("authenticated"):
+        return RedirectResponse(url="/login")
+
+    organizations = []
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.get(f"{ORG_SVC_URL}/", timeout=10.0)
+            if response.status_code == 200:
+                organizations = response.json()
+    except Exception as e:
+        print(f"Error fetching organizations: {e}")
+
+    return templates.TemplateResponse(
+        request,
+        "organizations.html",
+        {"user": user, "organizations": organizations},
+    )
+
+
+@app.post("/organizations", response_class=HTMLResponse)
+async def create_organization(request: Request):
+    """Create a new organization."""
+    user = request.session.get("user")
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    form_data = await request.form()
+    org_name = form_data.get("name")
+    if not org_name:
+        return HTMLResponse("Name is required", status_code=400)
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.post(
+                f"{ORG_SVC_URL}/", json={"name": org_name}, timeout=10.0
+            )
+            if response.status_code == 200:
+                # Refresh list (optimization: return just the new row or valid html list)
+                # Re-fetching full list for simplicity in htmx swap
+                return await list_organizations(request)
+            else:
+                return HTMLResponse(
+                    f"Error: {response.text}", status_code=response.status_code
+                )
+    except Exception as e:
+        return HTMLResponse(f"Creation failed: {e}", status_code=500)
+
+
+@app.get("/organizations/list", response_class=HTMLResponse)
+async def list_organizations(request: Request):
+    """List organizations via HTMX partial."""
+    user = request.session.get("user")
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    organizations = []
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.get(f"{ORG_SVC_URL}/", timeout=10.0)
+            if response.status_code == 200:
+                organizations = response.json()
+    except Exception as e:
+        print(f"Failed to fetch organizations: {e}")
+
+    return templates.TemplateResponse(
+        request,
+        "partials/organization_list.html",
+        {"organizations": organizations},
+    )
+
+
+@app.delete("/organizations/{org_id}")
+async def delete_organization(request: Request, org_id: int):
+    """Delete an organization."""
+    user = request.session.get("user")
+    if not user:
+        return HTMLResponse("Unauthorized", status_code=401)
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.delete(f"{ORG_SVC_URL}/{org_id}", timeout=10.0)
+            if response.status_code == 200:
+                return HTMLResponse("")  # Empty response for outerHTML swap
+            else:
+                return HTMLResponse(
+                    f"Error: {response.text}", status_code=response.status_code
+                )
+    except Exception as e:
+        return HTMLResponse(f"Deletion failed: {e}", status_code=500)
 
 
 if __name__ == "__main__":

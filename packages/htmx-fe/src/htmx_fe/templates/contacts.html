@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block layout %}
+<div class="flex flex-col h-screen">
+    <!-- Header (Same as index.html) -->
+    <header class="bg-blue-600 text-white shadow-lg z-20">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <a href="/" class="p-2 rounded-full hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1 class="text-xl font-bold tracking-tight">Contact Management</h1>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+        <div class="max-w-6xl mx-auto space-y-8">
+            <!-- Add Contact Form -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <h3 class="font-bold text-slate-800">Add New Contact</h3>
+                </div>
+                <div class="p-6">
+                    <form hx-post="/contacts" hx-target="#contact-list" hx-swap="innerHTML"
+                        class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">First Name</label>
+                            <input type="text" name="first_name" required
+                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Last Name</label>
+                            <input type="text" name="last_name" required
+                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Role</label>
+                            <input type="text" name="role" required
+                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Organization</label>
+                            <select name="organization_id"
+                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2">
+                                <option value="">None</option>
+                                {% for org in organizations %}
+                                <option value="{{ org.id }}">{{ org.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Email</label>
+                            <input type="email" name="email" required
+                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Phone</label>
+                            <input type="text" name="phone" required
+                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Tags</label>
+                            <input type="text" name="tags" placeholder="tag1, tag2"
+                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit"
+                                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                Add Contact
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Contact List -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800">Contact List</h3>
+                    <button hx-get="/contacts/list" hx-target="#contact-list" class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    First Name</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Last Name</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Role</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Organization</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Emails</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Phones</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Tags</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contact-list" hx-get="/contacts/list" hx-trigger="load"
+                            class="bg-white divide-y divide-slate-200">
+                            <!-- Loaded via HTMX -->
+                            <tr>
+                                <td colspan="6" class="px-6 py-4 text-center text-slate-400">Loading contacts...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+</div>
+{% endblock %}

@@ -8,6 +8,19 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+
+class State:
+    def __init__(self, value: Any = None):
+        self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    def set_value(self, value: Any):
+        self._value = value
+
+
 # Keycloak configuration
 KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "http://127.0.0.1:8080").rstrip("/")
 KEYCLOAK_EXTERNAL_URL = os.environ.get("KEYCLOAK_EXTERNAL_URL", KEYCLOAK_URL).rstrip(
@@ -17,6 +30,10 @@ REALM = "test-realm"
 CLIENT_ID = "nicegui-app"
 CLIENT_SECRET = os.environ.get("KEYCLOAK_CLIENT_SECRET")
 SERVICE_URL = os.environ.get("SERVICE_URL", "http://127.0.0.1:8020").rstrip("/")
+CONTACT_SVC_URL = os.environ.get(
+    "CONTACT_SVC_URL", "http://api.localhost/contacts"
+).rstrip("/")
+ORG_SVC_URL = os.environ.get("ORG_SVC_URL", "http://api.localhost/orgs").rstrip("/")
 
 # Add SessionMiddleware with a unique cookie name to avoid clashes with Keycloak
 # We check if middleware is already added to support module reloading in tests
@@ -185,6 +202,12 @@ def main_page() -> None:
             ui.item("About", on_click=lambda: ui.notify("About clicked")).props(
                 "clickable v-ripple"
             ).classes("px-4")
+            ui.item("Contacts", on_click=lambda: ui.navigate.to("/contacts")).props(
+                "clickable v-ripple"
+            ).classes("px-4")
+            ui.item(
+                "Organizations", on_click=lambda: ui.navigate.to("/organizations")
+            ).props("clickable v-ripple").classes("px-4")
             if not authenticated:
                 ui.item("Login", on_click=lambda: ui.navigate.to("/login")).props(
                     "clickable v-ripple"
@@ -217,6 +240,13 @@ def main_page() -> None:
                 ).props("read-only")
 
             with ui.card().classes("w-full mt-8"):
+                ui.label("Contacts").classes("text-h6 mb-4")
+                ui.label("Manage your contacts and organizations.").classes("mb-4")
+                ui.button(
+                    "Go to Contacts", on_click=lambda: ui.navigate.to("/contacts")
+                ).classes("w-full")
+
+            with ui.card().classes("w-full mt-8"):
                 ui.label("Backend Service Interaction").classes("text-h6 mb-4")
 
                 async def call_backend_service():
@@ -230,7 +260,7 @@ def main_page() -> None:
                         ui.spinner(size="lg")
 
                     try:
-                        async with httpx.AsyncClient() as client:
+                        async with httpx.AsyncClient(follow_redirects=True) as client:
                             response = await client.get(
                                 f"{SERVICE_URL}/hello",
                                 headers={"Authorization": f"Bearer {access_token}"},
@@ -283,6 +313,347 @@ def main_page() -> None:
             ui.button("Get Started", on_click=lambda: ui.navigate.to("/login")).classes(
                 "mt-4 text-lg"
             )
+
+
+@ui.page("/contacts")
+async def contacts_page() -> None:
+    """The contact management page."""
+    authenticated = app.storage.user.get("authenticated", False)
+    if not authenticated:
+        ui.navigate.to("/login")
+        return
+
+    user = app.storage.user.get("username", "")
+
+    async def get_contacts():
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(f"{CONTACT_SVC_URL}/", timeout=10.0)
+                if response.status_code == 200:
+                    return response.json()
+            except Exception as e:
+                ui.notify(f"Failed to fetch contacts: {e}", type="negative")
+        return []
+
+    async def get_organizations():
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(f"{ORG_SVC_URL}/", timeout=10.0)
+                if response.status_code == 200:
+                    return response.json()
+            except Exception as e:
+                ui.notify(f"Failed to fetch organizations: {e}", type="negative")
+        return []
+
+    async def add_contact():
+        new_contact = {
+            "first_name": first_name_input.value,
+            "last_name": last_name_input.value,
+            "role": role_input.value,
+            "organization_id": org_select.value,
+            "tags": tags_input.value.split(",") if tags_input.value else [],
+            "emails": [{"address": email_input.value}],
+            "phone_numbers": [{"number": phone_input.value}],
+        }
+        async with httpx.AsyncClient() as client:
+            try:
+                if editing_contact_id.value:
+                    response = await client.patch(
+                        f"{CONTACT_SVC_URL}/{editing_contact_id.value}",
+                        json=new_contact,
+                        timeout=10.0,
+                    )
+                else:
+                    response = await client.post(
+                        f"{CONTACT_SVC_URL}/", json=new_contact, timeout=10.0
+                    )
+
+                if response.status_code == 200:
+                    ui.notify("Success", type="positive")
+                    cancel_contact_edit()
+                    await refresh_contacts()
+                else:
+                    ui.notify(f"Error: {response.text}", type="negative")
+            except Exception as e:
+                ui.notify(f"Operation failed: {e}", type="negative")
+
+    async def delete_contact(contact_id: int):
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.delete(
+                    f"{CONTACT_SVC_URL}/{contact_id}", timeout=10.0
+                )
+                if response.status_code == 200:
+                    ui.notify("Contact deleted", type="positive")
+                    await refresh_contacts()
+                else:
+                    ui.notify(
+                        f"Error deleting contact: {response.text}", type="negative"
+                    )
+            except Exception as e:
+                ui.notify(f"Failed to delete contact: {e}", type="negative")
+
+    def start_contact_edit(contact: dict):
+        editing_contact_id.set_value(contact["id"])
+        first_name_input.set_value(contact["first_name"])
+        last_name_input.set_value(contact["last_name"])
+        role_input.set_value(contact["role"])
+        # Find org ID from name if needed, but the row should have org_id if we include it
+        # Let's ensure load_data includes org_id
+        org_select.set_value(contact.get("organization_id"))
+        email_input.set_value(contact["emails"])
+        phone_input.set_value(contact["phone_numbers"])
+        tags_input.set_value(contact["tags"])
+
+        add_contact_btn.set_text("Save Changes")
+        cancel_contact_btn.set_visibility(True)
+        ui.notify(f"Editing contact {contact['id']}")
+
+    def cancel_contact_edit():
+        editing_contact_id.set_value(None)
+        first_name_input.set_value("")
+        last_name_input.set_value("")
+        role_input.set_value("")
+        org_select.set_value(None)
+        email_input.set_value("")
+        phone_input.set_value("")
+        tags_input.set_value("")
+        add_contact_btn.set_text("Add")
+        cancel_contact_btn.set_visibility(False)
+
+    async def refresh_contacts():
+        await table.update_rows()
+
+    editing_contact_id = State(None)
+
+    with ui.header().classes("bg-primary text-white items-center justify-between"):
+        ui.label("Contact Management").classes("text-h6 ml-4")
+        ui.button("Back Home", on_click=lambda: ui.navigate.to("/")).props(
+            "flat color=white"
+        )
+
+    with ui.column().classes("w-full p-8 gap-8"):
+        with ui.card().classes("w-full p-6"):
+            ui.label("Add/Edit Contact").classes("text-h5 mb-4")
+            with ui.row().classes("w-full items-end gap-4"):
+                first_name_input = ui.input("First Name").classes("flex-1")
+                last_name_input = ui.input("Last Name").classes("flex-1")
+                role_input = ui.input("Role").classes("flex-1")
+                orgs = await get_organizations()
+                org_select = ui.select(
+                    {o["id"]: o["name"] for o in orgs}, label="Organization"
+                ).classes("flex-1")
+                email_input = ui.input("Email").classes("flex-1")
+                phone_input = ui.input("Phone").classes("flex-1")
+                tags_input = ui.input("Tags (comma separated)").classes("flex-1")
+                add_contact_btn = ui.button("Add", on_click=add_contact).classes("mb-1")
+                cancel_contact_btn = ui.button(
+                    "Cancel", on_click=cancel_contact_edit, color="grey"
+                ).classes("mb-1")
+                cancel_contact_btn.set_visibility(False)
+
+        with ui.card().classes("w-full p-6"):
+            ui.label("Contact List").classes("text-h5 mb-4")
+
+            columns = [
+                {
+                    "name": "first_name",
+                    "label": "First Name",
+                    "field": "first_name",
+                    "align": "left",
+                },
+                {
+                    "name": "last_name",
+                    "label": "Last Name",
+                    "field": "last_name",
+                    "align": "left",
+                },
+                {
+                    "name": "role",
+                    "label": "Role",
+                    "field": "role",
+                    "required": True,
+                    "align": "left",
+                },
+                {
+                    "name": "org",
+                    "label": "Organization",
+                    "field": "organization_name",
+                    "align": "left",
+                },
+                {
+                    "name": "emails",
+                    "label": "Emails",
+                    "field": "emails",
+                    "align": "left",
+                },
+                {
+                    "name": "phones",
+                    "label": "Phones",
+                    "field": "phone_numbers",
+                    "align": "left",
+                },
+                {"name": "tags", "label": "Tags", "field": "tags", "align": "left"},
+                {"name": "actions", "label": "Actions", "field": "id"},
+            ]
+
+            async def load_data():
+                data = await get_contacts()
+                rows = []
+                for c in data:
+                    rows.append(
+                        {
+                            "id": c["id"],
+                            "first_name": c.get("first_name", ""),
+                            "last_name": c.get("last_name", ""),
+                            "role": c["role"],
+                            "organization_id": c.get("organization_id"),
+                            "organization_name": c.get("organization_name", "Unknown"),
+                            "emails": ", ".join([e["address"] for e in c["emails"]]),
+                            "phone_numbers": ", ".join(
+                                [p["number"] for p in c["phone_numbers"]]
+                            ),
+                            "tags": ", ".join(c["tags"]),
+                        }
+                    )
+                return rows
+
+            table = ui.table(columns=columns, rows=[], row_key="id").classes("w-full")
+            table.add_slot(
+                "body-cell-actions",
+                """
+                <q-td :props="props">
+                    <q-btn flat round color="primary" icon="edit" @click="$parent.$emit('edit', props.row)" />
+                    <q-btn flat round color="negative" icon="delete" @click="$parent.$emit('delete', props.row.id)" />
+                </q-td>
+            """,
+            )
+            table.on("edit", lambda msg: start_contact_edit(msg.args))
+            table.on("delete", lambda msg: delete_contact(msg.args))
+
+            async def update_rows():
+                table.rows = await load_data()
+
+            table.update_rows = update_rows
+            await update_rows()
+
+
+@ui.page("/organizations")
+async def organizations_page() -> None:
+    """The organization management page."""
+    authenticated = app.storage.user.get("authenticated", False)
+    if not authenticated:
+        ui.navigate.to("/login")
+        return
+
+    async def get_orgs():
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(f"{ORG_SVC_URL}/", timeout=10.0)
+                if response.status_code == 200:
+                    return response.json()
+            except Exception as e:
+                ui.notify(f"Failed to fetch organizations: {e}", type="negative")
+        return []
+
+    async def add_org():
+        if not org_name_input.value:
+            ui.notify("Name is required", type="negative")
+            return
+
+        async with httpx.AsyncClient() as client:
+            try:
+                if editing_id.value:
+                    response = await client.put(
+                        f"{ORG_SVC_URL}/{editing_id.value}",
+                        json={"name": org_name_input.value},
+                        timeout=10.0,
+                    )
+                else:
+                    response = await client.post(
+                        f"{ORG_SVC_URL}/",
+                        json={"name": org_name_input.value},
+                        timeout=10.0,
+                    )
+
+                if response.status_code == 200:
+                    ui.notify("Success", type="positive")
+                    cancel_edit()
+                    await refresh_orgs()
+                else:
+                    ui.notify(f"Error: {response.text}", type="negative")
+            except Exception as e:
+                ui.notify(f"Operation failed: {e}", type="negative")
+
+    async def delete_org(org_id: int):
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.delete(f"{ORG_SVC_URL}/{org_id}", timeout=10.0)
+                if response.status_code == 200:
+                    ui.notify("Deleted", type="positive")
+                    await refresh_orgs()
+                else:
+                    ui.notify(f"Error: {response.text}", type="negative")
+            except Exception as e:
+                ui.notify(f"Failed to delete: {e}", type="negative")
+
+    def start_edit(org: dict):
+        editing_id.set_value(org["id"])
+        org_name_input.set_value(org["name"])
+        add_btn.set_text("Save Changes")
+        cancel_btn.set_visibility(True)
+
+    def cancel_edit():
+        editing_id.set_value(None)
+        org_name_input.set_value("")
+        add_btn.set_text("Add")
+        cancel_btn.set_visibility(False)
+
+    async def refresh_orgs():
+        table.rows = await get_orgs()
+
+    editing_id = State(None)
+
+    with ui.header().classes("bg-primary text-white items-center justify-between"):
+        ui.label("Organization Management").classes("text-h6 ml-4")
+        ui.button("Back Home", on_click=lambda: ui.navigate.to("/")).props(
+            "flat color=white"
+        )
+
+    with ui.column().classes("w-full p-8 gap-8"):
+        with ui.card().classes("w-full p-6"):
+            ui.label("Add/Edit Organization").classes("text-h5 mb-4")
+            with ui.row().classes("w-full items-end gap-4"):
+                org_name_input = ui.input("Organization Name").classes("flex-1")
+                add_btn = ui.button("Add", on_click=add_org).classes("mb-1")
+                cancel_btn = ui.button(
+                    "Cancel", on_click=cancel_edit, color="grey"
+                ).classes("mb-1")
+                cancel_btn.set_visibility(False)
+
+        with ui.card().classes("w-full p-6"):
+            ui.label("Organization List").classes("text-h5 mb-4")
+
+            columns = [
+                {"name": "id", "label": "ID", "field": "id", "align": "left"},
+                {"name": "name", "label": "Name", "field": "name", "align": "left"},
+                {"name": "actions", "label": "Actions", "field": "id"},
+            ]
+
+            table = ui.table(columns=columns, rows=[], row_key="id").classes("w-full")
+            table.add_slot(
+                "body-cell-actions",
+                """
+                <q-td :props="props">
+                    <q-btn flat round color="primary" icon="edit" @click="$parent.$emit('edit', props.row)" />
+                    <q-btn flat round color="negative" icon="delete" @click="$parent.$emit('delete', props.row.id)" />
+                </q-td>
+            """,
+            )
+            table.on("edit", lambda msg: start_edit(msg.args))
+            table.on("delete", lambda msg: delete_org(msg.args))
+
+            await refresh_orgs()
 
 
 if __name__ in {"__main__", "__mp_main__", "nicegui"}:
