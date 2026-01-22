@@ -15,4 +15,4 @@ RUN uv pip install --system --no-cache .
 ENV PYTHONUNBUFFERED=1
 
 # Run the application
-CMD ["python", "src/main.py"]
+CMD ["python", "src/nicegui_fe/main.py"]

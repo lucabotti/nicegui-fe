@@ -112,7 +112,6 @@ services:
     build:
       context: packages/fastapi-svc
       dockerfile: Dockerfile
-    command: uv run --package fastapi-svc python src/main.py
     environment:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_EXTERNAL_URL: http://keycloak.localhost:8080
@@ -130,7 +129,6 @@ services:
     build:
       context: packages/nicegui-fe
       dockerfile: Dockerfile
-    command: uv run --package nicegui-fe python src/main.py
     environment:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_EXTERNAL_URL: http://keycloak.localhost:8080
@@ -159,7 +157,6 @@ services:
     build:
       context: packages/htmx-fe
       dockerfile: Dockerfile
-    command: uv run --package htmx-fe python src/htmx_fe/main.py
     environment:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_EXTERNAL_URL: http://keycloak.localhost:8080
@@ -193,9 +190,10 @@ services:
         condition: service_healthy
     environment:
       - PORT=8001
-      - DATABASE_URL=postgresql://keycloak:password@db:5432/contacts
+      - DATABASE_URL=postgresql://keycloak:password@db:5432/orgs
     volumes:
       - ./packages/org-svc/src:/app/src
+      - ./packages/org-svc/migrations:/app/migrations
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.org-svc.rule=Host(`api.localhost`) && PathPrefix(`/orgs`)"
@@ -217,6 +215,7 @@ services:
       - PORT=8002
     volumes:
       - ./packages/contact-svc/src:/app/src
+      - ./packages/contact-svc/migrations:/app/migrations
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.contact-svc.rule=Host(`api.localhost`) && PathPrefix(`/contacts`)"

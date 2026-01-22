@@ -19,6 +19,31 @@ dependencies = [
     "uvicorn[standard]>=0.40.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+    "pytest",
+    "pytest-asyncio",
+    "redis",
+    "ruff",
+    "testcontainers>=4.13.3",
+    "ty",
+]
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "U"]
+ignore = []
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
 build-backend = "uv_build"

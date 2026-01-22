@@ -8,6 +8,9 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+# Import models for metadata registration
+from org_svc.models.organization import Organization  # noqa: F401
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -35,8 +38,6 @@ target_metadata = Base.metadata
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    if type_ == "table" and object.schema != "organization":
-        return False
     return True
 
 
@@ -58,7 +59,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        version_table_schema="organization",
+        version_table_schema=None,
         include_object=include_object,
     )
 
@@ -70,7 +71,7 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        version_table_schema="organization",
+        version_table_schema=None,
         include_object=include_object,
     )
 

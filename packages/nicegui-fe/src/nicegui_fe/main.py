@@ -326,7 +326,7 @@ async def contacts_page() -> None:
     user = app.storage.user.get("username", "")
 
     async def get_contacts():
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 response = await client.get(f"{CONTACT_SVC_URL}/", timeout=10.0)
                 if response.status_code == 200:
@@ -336,7 +336,7 @@ async def contacts_page() -> None:
         return []
 
     async def get_organizations():
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 response = await client.get(f"{ORG_SVC_URL}/", timeout=10.0)
                 if response.status_code == 200:
@@ -350,12 +350,20 @@ async def contacts_page() -> None:
             "first_name": first_name_input.value,
             "last_name": last_name_input.value,
             "role": role_input.value,
-            "organization_id": org_select.value,
+            "organization_id": str(org_select.value) if org_select.value else None,
             "tags": tags_input.value.split(",") if tags_input.value else [],
-            "emails": [{"address": email_input.value}],
-            "phone_numbers": [{"number": phone_input.value}],
+            "emails": [
+                {"address": row.default_slot.children[0].value}
+                for row in emails_container
+                if row.default_slot.children[0].value
+            ],
+            "phone_numbers": [
+                {"number": row.default_slot.children[0].value}
+                for row in phones_container
+                if row.default_slot.children[0].value
+            ],
         }
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 if editing_contact_id.value:
                     response = await client.patch(
@@ -373,12 +381,13 @@ async def contacts_page() -> None:
                     cancel_contact_edit()
                     await refresh_contacts()
                 else:
+                    print(f"Error adding contact: {response.text}")
                     ui.notify(f"Error: {response.text}", type="negative")
             except Exception as e:
                 ui.notify(f"Operation failed: {e}", type="negative")
 
     async def delete_contact(contact_id: int):
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 response = await client.delete(
                     f"{CONTACT_SVC_URL}/{contact_id}", timeout=10.0
@@ -401,8 +410,18 @@ async def contacts_page() -> None:
         # Find org ID from name if needed, but the row should have org_id if we include it
         # Let's ensure load_data includes org_id
         org_select.set_value(contact.get("organization_id"))
-        email_input.set_value(contact["emails"])
-        phone_input.set_value(contact["phone_numbers"])
+        emails_container.clear()
+        for email in contact.get("emails", []):
+            add_email_field(email["address"])
+        if not contact.get("emails"):
+            add_email_field()
+
+        phones_container.clear()
+        for phone in contact.get("phone_numbers", []):
+            add_phone_field(phone["number"])
+        if not contact.get("phone_numbers"):
+            add_phone_field()
+
         tags_input.set_value(contact["tags"])
 
         add_contact_btn.set_text("Save Changes")
@@ -415,8 +434,13 @@ async def contacts_page() -> None:
         last_name_input.set_value("")
         role_input.set_value("")
         org_select.set_value(None)
-        email_input.set_value("")
-        phone_input.set_value("")
+
+        emails_container.clear()
+        add_email_field()
+
+        phones_container.clear()
+        add_phone_field()
+
         tags_input.set_value("")
         add_contact_btn.set_text("Add")
         cancel_contact_btn.set_visibility(False)
@@ -443,8 +467,49 @@ async def contacts_page() -> None:
                 org_select = ui.select(
                     {o["id"]: o["name"] for o in orgs}, label="Organization"
                 ).classes("flex-1")
-                email_input = ui.input("Email").classes("flex-1")
-                phone_input = ui.input("Phone").classes("flex-1")
+
+                with ui.column().classes("flex-1 gap-2"):
+                    ui.label("Emails")
+                    emails_container = ui.column().classes("w-full gap-2")
+
+                    def add_email_field(value=""):
+                        with emails_container:
+                            with ui.row().classes("w-full items-center gap-2") as row:
+                                ui.input(value=value, placeholder="Email").classes(
+                                    "flex-1"
+                                )
+                                ui.button(
+                                    icon="delete",
+                                    color="negative",
+                                    on_click=lambda: emails_container.remove(row),
+                                ).props("flat round dense")
+
+                    ui.button(
+                        "Add Email", on_click=lambda: add_email_field(), icon="add"
+                    ).props("flat dense")
+                    add_email_field()  # Add initial field
+
+                with ui.column().classes("flex-1 gap-2"):
+                    ui.label("Phone Numbers")
+                    phones_container = ui.column().classes("w-full gap-2")
+
+                    def add_phone_field(value=""):
+                        with phones_container:
+                            with ui.row().classes("w-full items-center gap-2") as row:
+                                ui.input(value=value, placeholder="Phone").classes(
+                                    "flex-1"
+                                )
+                                ui.button(
+                                    icon="delete",
+                                    color="negative",
+                                    on_click=lambda: phones_container.remove(row),
+                                ).props("flat round dense")
+
+                    ui.button(
+                        "Add Phone", on_click=lambda: add_phone_field(), icon="add"
+                    ).props("flat dense")
+                    add_phone_field()  # Add initial field
+
                 tags_input = ui.input("Tags (comma separated)").classes("flex-1")
                 add_contact_btn = ui.button("Add", on_click=add_contact).classes("mb-1")
                 cancel_contact_btn = ui.button(
@@ -547,7 +612,7 @@ async def organizations_page() -> None:
         return
 
     async def get_orgs():
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 response = await client.get(f"{ORG_SVC_URL}/", timeout=10.0)
                 if response.status_code == 200:
@@ -561,7 +626,7 @@ async def organizations_page() -> None:
             ui.notify("Name is required", type="negative")
             return
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 if editing_id.value:
                     response = await client.put(
@@ -586,7 +651,7 @@ async def organizations_page() -> None:
                 ui.notify(f"Operation failed: {e}", type="negative")
 
     async def delete_org(org_id: int):
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 response = await client.delete(f"{ORG_SVC_URL}/{org_id}", timeout=10.0)
                 if response.status_code == 200:
