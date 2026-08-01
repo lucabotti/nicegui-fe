@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block layout %}
+<div class="flex flex-col h-screen">
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-lg z-20">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')"
+                    class="p-2 rounded-full hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="text-xl font-bold tracking-tight">HTMX App</h1>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                {% if authenticated %}
+                <span class="hidden md:inline-block font-medium">Welcome, {{ user.username }}</span>
+                {% endif %}
+
+                <div class="relative group">
+                    <button class="p-2 rounded-full bg-blue-700 hover:bg-blue-800 transition-colors focus:outline-none">
+                        <i class="fas fa-user-circle text-2xl"></i>
+                    </button>
+                    <!-- Profile Menu -->
+                    <div
+                        class="absolute right-0 mt-2 w-64 bg-white text-slate-800 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right py-2 border border-slate-100 z-50">
+                        {% if authenticated %}
+                        <div class="px-4 py-3 border-b border-slate-50 mb-1">
+                            <p class="font-bold text-slate-900">{{ user.first_name }} {{ user.last_name }}</p>
+                            <p class="text-sm text-slate-500">{{ user.email }}</p>
+                        </div>
+                        <a href="{{ keycloak_external_url }}/realms/{{ realm }}/account/" target="_blank"
+                            class="block px-4 py-2 hover:bg-slate-50 transition-colors">
+                            <i class="fas fa-cog mr-2 text-slate-400"></i> Account Management
+                        </a>
+                        <a href="/logout" class="block px-4 py-2 text-red-600 hover:bg-red-50 transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                        </a>
+                        {% else %}
+                        <a href="/login" class="block px-4 py-2 hover:bg-slate-50 transition-colors">
+                            <i class="fas fa-sign-in-alt mr-2 text-slate-400"></i> Login
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition duration-200 ease-in-out z-10 w-64 bg-white border-r border-slate-200 flex flex-col pt-16 md:pt-0">
+            <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+                <a href="/"
+                    class="flex items-center px-4 py-3 bg-blue-50 text-blue-700 rounded-lg font-medium transition-colors">
+                    <i class="fas fa-home w-8"></i> Home
+                </a>
+                <button onclick="alert('About clicked')"
+                    class="w-full flex items-center px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <i class="fas fa-info-circle w-8"></i> About
+                </button>
+                <a href="/contacts"
+                    class="flex items-center px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <i class="fas fa-address-book w-8"></i> Contacts
+                </a>
+                <a href="/organizations"
+                    class="flex items-center px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <i class="fas fa-building w-8"></i> Organizations
+                </a>
+
+                {% if not authenticated %}
+                <a href="/login"
+                    class="flex items-center px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <i class="fas fa-sign-in-alt w-8"></i> Login
+                </a>
+                {% else %}
+                {% if 'role2' in user.roles %}
+                <button onclick="alert('Role 2 clicked')"
+                    class="w-full flex items-center px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <i class="fas fa-shield-alt w-8"></i> Role 2 Menu
+                </button>
+                {% endif %}
+                {% if 'admin' in user.roles %}
+                <button onclick="alert('Admin menu clicked')"
+                    class="w-full flex items-center px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <i class="fas fa-user-shield w-8"></i> Admin Menu
+                </button>
+                {% endif %}
+                <a href="/logout"
+                    class="flex items-center px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors mt-8">
+                    <i class="fas fa-sign-out-alt w-8"></i> Logout
+                </a>
+                {% endif %}
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-8">
+            <div class="max-w-4xl mx-auto space-y-8">
+                {% if authenticated %}
+                <div class="text-center space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <h2 class="text-4xl font-extrabold text-slate-900">Hello {{ user.username }}!</h2>
+                    <p class="text-xl text-slate-500">You are successfully logged in.</p>
+                </div>
+
+                <!-- User Info Info Card -->
+                <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                        <h3 class="font-bold text-slate-800">User Information from Keycloak</h3>
+                    </div>
+                    <div class="p-6">
+                        <pre
+                            class="bg-slate-900 text-blue-400 p-4 rounded-xl overflow-auto text-sm max-h-60">{{ user.user_info_raw | tojson(indent=2) }}</pre>
+                    </div>
+                </section>
+
+                <!-- Contacts Section -->
+                <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                        <h3 class="font-bold text-slate-800">Contacts Management</h3>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-slate-600 mb-4">Manage your contacts and organizations.</p>
+                        <a href="/contacts"
+                            class="block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-lg text-center">
+                            Go to Contacts
+                        </a>
+                    </div>
+                </section>
+
+                <!-- Backend Service Interaction -->
+                <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                        <h3 class="font-bold text-slate-800">Backend Service Interaction</h3>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <button hx-get="/service-call" hx-target="#service-result" hx-indicator="#spinner"
+                            class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center">
+                            <span>Call Authenticated Service</span>
+                            <div id="spinner"
+                                class="htmx-indicator ml-3 border-2 border-white/30 border-t-white rounded-full w-5 h-5 animate-spin">
+                            </div>
+                        </button>
+
+                        <div id="service-result"
+                            class="mt-4 min-h-[100px] flex items-center justify-center border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/30">
+                            <p class="text-slate-400 text-sm">Response will appear here...</p>
+                        </div>
+                    </div>
+                </section>
+                {% else %}
+                <div class="text-center py-20 space-y-6">
+                    <div class="inline-flex p-4 bg-blue-100 text-blue-600 rounded-2xl mb-4">
+                        <i class="fas fa-rocket text-4xl"></i>
+                    </div>
+                    <h2 class="text-5xl font-extrabold text-slate-900 tracking-tight">Welcome to the App!</h2>
+                    <p class="text-xl text-slate-500 max-w-lg mx-auto">Reimagined with HTMX and FastAPI for a
+                        lightweight and lightning-fast experience.</p>
+                    <div>
+                        <a href="/login"
+                            class="inline-block px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+                            Get Started <i class="fas fa-arrow-right ml-2"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+</div>
+
+<style>
+    .htmx-indicator {
+        display: none;
+    }
+
+    .htmx-request .htmx-indicator {
+        display: inline-block;
+    }
+
+    .htmx-request.htmx-indicator {
+        display: inline-block;
+    }
+</style>
+{% endblock %}

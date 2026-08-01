@@ -7,8 +7,14 @@
       "username": "testadmin",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Test",
-      "lastName": "Admin",
+      "email": "testadmin@example.com",
+      "attributes": {
+        "phoneNumber": [
+          "192837465012"
+        ]
+      },
+      "firstName": "Bruce",
+      "lastName": "Wayne",
       "credentials": [
         {
           "type": "password",
@@ -16,14 +22,31 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "admin", "user" ]
+      "realmRoles": [
+        "admin",
+        "user",
+        "role1",
+        "role2"
+      ],
+      "clientRoles": {
+        "account": [
+          "manage-account",
+          "view-profile"
+        ]
+      }
     },
     {
       "username": "testuser",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Test",
-      "lastName": "User",
+      "email": "testuser@example.com",
+      "attributes": {
+        "phoneNumber": [
+          "918273645098"
+        ]
+      },
+      "firstName": "Clark",
+      "lastName": "Kent",
       "credentials": [
         {
           "type": "password",
@@ -31,14 +54,29 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "user" ]
+      "realmRoles": [
+        "user",
+        "role1"
+      ],
+      "clientRoles": {
+        "account": [
+          "manage-account",
+          "view-profile"
+        ]
+      }
     },
     {
       "username": "testuser2",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Test",
-      "lastName": "User2",
+      "email": "testuser2@example.com",
+      "attributes": {
+        "phoneNumber": [
+          "564738291023"
+        ]
+      },
+      "firstName": "Barry",
+      "lastName": "Allen",
       "credentials": [
         {
           "type": "password",
@@ -46,13 +84,32 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "user" ]
+      "realmRoles": [
+        "user",
+        "role2"
+      ],
+      "clientRoles": {
+        "account": [
+          "manage-account",
+          "view-profile"
+        ]
+      }
     }
   ],
   "roles": {
     "realm": [
-      { "name": "admin" },
-      { "name": "user" }
+      {
+        "name": "admin"
+      },
+      {
+        "name": "user"
+      },
+      {
+        "name": "role1"
+      },
+      {
+        "name": "role2"
+      }
     ]
   },
   "clients": [
@@ -61,8 +118,42 @@
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
-      "redirectUris": [ "*" ],
-      "webOrigins": [ "*" ],
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "phone-number-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "phoneNumber",
+            "claim.name": "phone_number",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "api-gateway",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "api-gateway-secret",
+      "redirectUris": [
+        "http://api.localhost/oauth2/callback"
+      ],
+      "webOrigins": [
+        "*"
+      ],
       "directAccessGrantsEnabled": true
     }
   ]

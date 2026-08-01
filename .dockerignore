@@ -1,0 +1,16 @@
+.venv
+__pycache__
+.git
+.pytest_cache
+.ruff_cache
+.agent
+.idea
+*.pyc
+*.pyo
+*.pyd
+.env
+.python-version
+tests/
+packages/*/tests/
+packages/*/.pytest_cache/
+packages/*/__pycache__/

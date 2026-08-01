@@ -1,13 +1,22 @@
 [project]
-name = "nicegui-fe"
+name = "htmx-fe"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
+authors = [
+    { name = "Luca Botti", email = "lbotti@red.software.systems" }
+]
 requires-python = ">=3.14"
 dependencies = [
-    "nicegui[redis]>=3.4.1",
-    "httpx",
+    "fastapi>=0.127.0",
+    "httpx>=0.28.1",
+    "itsdangerous>=2.2.0",
+    "jinja2>=3.1.6",
     "python-keycloak>=5.8.1",
+    "python-multipart>=0.0.21",
+    "redis>=7.1.0",
+    "starlette-session-middleware>=0.1.6",
+    "uvicorn[standard]>=0.40.0",
 ]
 
 [dependency-groups]
@@ -22,20 +31,19 @@ dev = [
 ]
 
 [tool.ruff]
-# Target version for Python
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
-# Rules to enable
 select = ["E", "F", "I", "U"]
-# Rules to ignore
 ignore = []
-# Allow autofix for all enabled rules (when supported)
 fixable = ["ALL"]
 
 [tool.ruff.format]
-# Enable black-compatible formatting
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[build-system]
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"
